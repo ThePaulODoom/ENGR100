@@ -1,378 +1,428 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Sound Wave Visualizer — Frequency & Amplitude + Staff</title>
-  <style>
-    :root{--bg:#0f1724;--card:#0b1220;--accent:#7dd3fc;--muted:#94a3b8}
-    *{box-sizing:border-box}
-    body{background:linear-gradient(180deg,#071126 0%, #00111a 100%);color:#e6eef6;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:24px;}
-    .app{max-width:900px;margin:0 auto;padding:20px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:14px;box-shadow:0 6px 30px rgba(2,6,23,0.6);}
-    h1{margin:0 0 12px;font-size:20px}
-    p{color:var(--muted);margin:0 0 18px}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grand Staff Visualizer (Range: C1 - C6)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #1a1a1a;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
 
-    .controls{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
-    .control{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.008));padding:12px;border-radius:10px}
-    label{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#cfe8fb}
-    .row{display:flex;gap:12px;align-items:center;margin-top:10px}
-    input[type=range]{width:100%}
-    .value{min-width:70px;text-align:right;color:var(--accent);font-weight:600}
+        .container {
+            background: #2d2d2d;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            width: 100%;
+            max-width: 800px;
+            text-align: center;
+        }
 
-    .actions{display:flex;gap:8px;align-items:center}
-    button{background:var(--accent);border:none;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600}
-    button.secondary{background:transparent;border:1px solid rgba(125,211,252,0.12);color:var(--accent)}
+        #toggleBtn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            margin: 20px 0;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: transform 0.1s, background-color 0.2s;
+            width: 100%;
+        }
 
-    canvas{width:100%;border-radius:8px;background:linear-gradient(180deg, rgba(255,255,255,0.007), rgba(255,255,255,0.004));display:block}
-    #waveCanvas{height:240px}
-    #staffCanvas{height:140px;margin-bottom:12px}
+        #toggleBtn:hover { transform: scale(1.02); background-color: #0056b3; }
+        #toggleBtn.stop { background-color: #dc3545; }
 
-    .footer{display:flex;justify-content:space-between;align-items:center;margin-top:14px;color:var(--muted);font-size:13px}
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+            text-align: left;
+            background: #3d3d3d;
+            padding: 15px;
+            border-radius: 10px;
+        }
 
-    @media (max-width:640px){.controls{grid-template-columns:1fr}.value{min-width:60px}}
-  </style>
+        select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+            font-size: 16px;
+            margin-top: 5px;
+            cursor: pointer;
+        }
+
+        input[type=range] { width: 100%; cursor: pointer; margin-top: 10px; }
+        label { display: flex; justify-content: space-between; font-weight: bold; color: #ddd; }
+
+        canvas {
+            background-color: #fff; /* Paper white for sheet music */
+            border-radius: 8px;
+            margin-bottom: 15px;
+            width: 100%;
+            display: block;
+        }
+
+        #waveCanvas { background-color: #000; border: 1px solid #555; }
+        
+        .note-display {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #4db8ff;
+            font-weight: bold;
+            font-variant-numeric: tabular-nums;
+        }
+    </style>
 </head>
 <body>
-  <div class="app">
-    <h1>Sound Wave Visualizer + Staff</h1>
-    <p>Use the sliders to change frequency (Hz) and amplitude (0–1). Play to hear the tone — the visualizer shows the waveform and the detected musical note on a staff (treble clef).</p>
 
-    <div class="controls">
-      <div class="control">
-        <label>Frequency <span id="freqLabel" class="value">440 Hz</span></label>
-        <div class="row">
-          <input id="frequency" type="range" min="20" max="2000" value="440" step="1">
-        </div>
-        <div class="row" style="margin-top:8px;justify-content:space-between;color:var(--muted);font-size:12px">
-          <div>20 Hz</div>
-          <div>2,000 Hz</div>
-        </div>
-      </div>
+    <div class="container">
+        <div class="note-display" id="noteDisplay">--</div>
+        
+        <canvas id="staffCanvas" width="800" height="300"></canvas>
+        <canvas id="waveCanvas" width="800" height="150"></canvas>
 
-      <div class="control">
-        <label>Amplitude <span id="ampLabel" class="value">0.5</span></label>
-        <div class="row">
-          <input id="amplitude" type="range" min="0" max="1" step="0.01" value="0.5">
+        <div class="controls">
+            <div style="grid-column: 1 / -1;">
+                <label for="waveType">Waveform Type</label>
+                <select id="waveType">
+                    <option value="sine">Sine Wave (Pure)</option>
+                    <option value="triangle">Triangle Wave (Clarinet-ish)</option>
+                    <option value="square">Square Wave (Game Boy)</option>
+                    <option value="sawtooth">Sawtooth Wave (Brass-ish)</option>
+                </select>
+            </div>
+
+            <div>
+                <label>Frequency: <span id="freqLabel">440 Hz</span></label>
+                <input type="range" id="freqSlider" min="32" max="1047" value="440" step="1">
+            </div>
+            <div>
+                <label>Volume</label>
+                <input type="range" id="ampSlider" min="0" max="0.3" step="0.01" value="0.1">
+            </div>
         </div>
-        <div class="row" style="margin-top:8px;justify-content:space-between;color:var(--muted);font-size:12px">
-          <div>0</div>
-          <div>1</div>
-        </div>
-      </div>
+
+        <button id="toggleBtn">CLICK TO START SOUND</button>
     </div>
 
-    <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
-      <div class="actions">
-        <button id="playBtn">Play</button>
-        <button id="stopBtn" class="secondary">Stop</button>
-      </div>
-      <div style="margin-left:12px;color:var(--muted);font-size:13px">Oscillator: <select id="waveType" style="background:transparent;color:inherit;border:none;outline:none;font-weight:600"><option value="sine">sine</option><option value="square">square</option><option value="sawtooth">sawtooth</option><option value="triangle">triangle</option></select></div>
-    </div>
+    <script>
+        // --- AUDIO SETUP ---
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+        let oscillator;
+        let gainNode;
+        let isPlaying = false;
 
-    <!-- Staff canvas (drawn with exact note placement mapped by semitone spacing) -->
-    <canvas id="staffCanvas" width="1200" height="220"></canvas>
+        const freqSlider = document.getElementById('freqSlider');
+        const ampSlider = document.getElementById('ampSlider');
+        const waveTypeSelect = document.getElementById('waveType');
+        const freqLabel = document.getElementById('freqLabel');
+        const noteDisplay = document.getElementById('noteDisplay');
+        const toggleBtn = document.getElementById('toggleBtn');
 
-    <canvas id="waveCanvas" width="1200" height="360"></canvas>
+        const waveCanvas = document.getElementById('waveCanvas');
+        const waveCtx = waveCanvas.getContext('2d');
+        const staffCanvas = document.getElementById('staffCanvas');
+        const staffCtx = staffCanvas.getContext('2d');
 
-    <div class="footer">
-      <div id="status">Status: stopped</div>
-      <div id="noteInfo">Note: —</div>
-    </div>
-  </div>
+        const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
-  <script>
-    // UI references
-    const freq = document.getElementById('frequency');
-    const amp = document.getElementById('amplitude');
-    const freqLabel = document.getElementById('freqLabel');
-    const ampLabel = document.getElementById('ampLabel');
-    const playBtn = document.getElementById('playBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const waveType = document.getElementById('waveType');
-    const status = document.getElementById('status');
-    const noteInfo = document.getElementById('noteInfo');
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
 
-    // Canvas setup
-    const waveCanvas = document.getElementById('waveCanvas');
-    const waveCtx = waveCanvas.getContext('2d');
-    const staffCanvas = document.getElementById('staffCanvas');
-    const staffCtx = staffCanvas.getContext('2d');
+            oscillator = audioCtx.createOscillator();
+            gainNode = audioCtx.createGain();
 
-    let rafId = null;
+            oscillator.type = waveTypeSelect.value;
+            oscillator.frequency.value = freqSlider.value;
+            gainNode.gain.value = ampSlider.value;
 
-    // Audio setup
-    let audioCtx = null;
-    let oscillator = null;
-    let gainNode = null;
-    let analyser = null;
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.start();
+        }
 
-    // Values
-    function updateLabels(){
-      freqLabel.textContent = Number(freq.value).toLocaleString() + ' Hz';
-      ampLabel.textContent = Number(amp.value).toFixed(2);
-    }
-    updateLabels();
+        function toggleSound() {
+            if (!isPlaying) {
+                initAudio();
+                isPlaying = true;
+                toggleBtn.textContent = "STOP SOUND";
+                toggleBtn.classList.add("stop");
+            } else {
+                oscillator.stop();
+                oscillator.disconnect();
+                isPlaying = false;
+                toggleBtn.textContent = "START SOUND";
+                toggleBtn.classList.remove("stop");
+            }
+        }
 
-    // Create/ensure AudioContext and analysis chain
-    function ensureAudioContext(){
-      if (!audioCtx){
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        gainNode = audioCtx.createGain();
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 2048;
-        gainNode.connect(analyser);
-        analyser.connect(audioCtx.destination);
-      }
-    }
+        waveTypeSelect.addEventListener('change', () => {
+            if(isPlaying && oscillator) oscillator.type = waveTypeSelect.value;
+        });
 
-    function startOscillator(){
-      if (oscillator) return; // already running
-      ensureAudioContext();
-      oscillator = audioCtx.createOscillator();
-      oscillator.type = waveType.value;
-      oscillator.frequency.value = Number(freq.value);
-      gainNode.gain.setValueAtTime(Number(amp.value), audioCtx.currentTime);
-      oscillator.connect(gainNode);
-      audioCtx.resume().then(()=>{
-        oscillator.start();
-        status.textContent = 'Status: playing';
-        playBtn.disabled = true;
-        stopBtn.disabled = false;
-        rafId = requestAnimationFrame(draw);
-        drawStaff();
-      });
-    }
+        // --- VISUALIZATION LOOP ---
+        let phase = 0;
 
-    function stopOscillator(){
-      if (!oscillator) return;
-      try { oscillator.stop(); } catch(e){console.warn(e)}
-      oscillator.disconnect();
-      oscillator = null;
-      status.textContent = 'Status: stopped';
-      playBtn.disabled = false;
-      stopBtn.disabled = true;
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = null;
-      clearWaveCanvas();
-    }
+        function draw() {
+            requestAnimationFrame(draw);
 
-    function clearWaveCanvas(){
-      waveCtx.clearRect(0,0,waveCanvas.width,waveCanvas.height);
-      waveCtx.fillStyle = 'rgba(255,255,255,0.02)';
-      waveCtx.fillRect(0, waveCanvas.height/2 - 1, waveCanvas.width, 2);
-    }
+            const freq = parseFloat(freqSlider.value);
+            const amp = parseFloat(ampSlider.value);
+            const type = waveTypeSelect.value;
+            
+            // 1. Draw Waveform
+            drawOscilloscope(freq, amp, type);
 
-    // draw waveform from analyser
-    let dataArray = new Uint8Array(2048);
-    function draw(){
-      if (!analyser) return;
-      analyser.fftSize = 2048;
-      const bufferLength = analyser.fftSize;
-      if (dataArray.length !== bufferLength) dataArray = new Uint8Array(bufferLength);
-      analyser.getByteTimeDomainData(dataArray);
+            // 2. Draw Grand Staff
+            drawGrandStaff(freq);
+        }
 
-      waveCtx.clearRect(0,0,waveCanvas.width,waveCanvas.height);
+        function drawOscilloscope(freq, amp, type) {
+            const w = waveCanvas.width;
+            const h = waveCanvas.height;
+            const centerY = h / 2;
 
-      // background grid
-      const stepY = waveCanvas.height / 8;
-      waveCtx.lineWidth = 1;
-      waveCtx.strokeStyle = 'rgba(255,255,255,0.03)';
-      for(let i=1;i<8;i++){
-        waveCtx.beginPath();
-        waveCtx.moveTo(0, stepY*i);
-        waveCtx.lineTo(waveCanvas.width, stepY*i);
-        waveCtx.stroke();
-      }
+            waveCtx.fillStyle = 'rgba(0, 0, 0, 0.2)'; 
+            waveCtx.fillRect(0, 0, w, h);
+            
+            // Dynamic Color
+            if (type === 'sine') waveCtx.strokeStyle = '#00ff00';
+            else if (type === 'square') waveCtx.strokeStyle = '#ff00ff'; 
+            else if (type === 'triangle') waveCtx.strokeStyle = '#00ffff'; 
+            else waveCtx.strokeStyle = '#ffaa00'; 
 
-      // waveform
-      waveCtx.lineWidth = 2.2;
-      waveCtx.strokeStyle = '#7dd3fc';
-      waveCtx.beginPath();
-      const sliceWidth = waveCanvas.width / bufferLength;
-      let x = 0;
-      for(let i=0;i<bufferLength;i++){
-        const v = dataArray[i] / 128.0;
-        const y = (v * waveCanvas.height) / 2;
-        if (i === 0) waveCtx.moveTo(x, y);
-        else waveCtx.lineTo(x, y);
-        x += sliceWidth;
-      }
-      waveCtx.stroke();
+            waveCtx.lineWidth = 3;
+            waveCtx.beginPath();
 
-      // draw frequency text
-      waveCtx.fillStyle = 'rgba(125,211,252,0.95)';
-      waveCtx.font = '13px UI-sans-serif, system-ui, -apple-system, Roboto';
-      waveCtx.fillText(`Freq: ${freq.value} Hz  ·  Amp: ${Number(amp.value).toFixed(2)}  ·  Type: ${waveType.value}`, 12, 18);
+            // Adjusted visual frequency for the C6 range
+            const visualFreq = freq * 0.05; 
+            const visualAmp = amp * 400; 
 
-      rafId = requestAnimationFrame(draw);
-    }
+            for (let x = 0; x < w; x++) {
+                const angle = (x * visualFreq * (Math.PI / 180)) + phase;
+                let sample = 0;
 
-    // -- Staff drawing and note detection --
-    const noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+                switch (type) {
+                    case 'sine': sample = Math.sin(angle); break;
+                    case 'square': sample = Math.sign(Math.sin(angle)); break;
+                    case 'triangle': sample = (2 / Math.PI) * Math.asin(Math.sin(angle)); break;
+                    case 'sawtooth': sample = -1 * (2 * (angle / (2 * Math.PI) - Math.floor(0.5 + angle / (2 * Math.PI)))); break;
+                }
+                const y = centerY + (sample * visualAmp);
+                if (x === 0) waveCtx.moveTo(x, y);
+                else waveCtx.lineTo(x, y);
+            }
+            waveCtx.stroke();
+            phase -= freq * 0.05;
+        }
 
-    function freqToMidi(f){
-      return 69 + 12 * Math.log2(f / 440);
-    }
-    function midiToNote(m){
-      const midi = Math.round(m);
-      const name = noteNames[midi % 12];
-      const octave = Math.floor(midi / 12) - 1; // MIDI 60 -> C4
-      return {midi, name, octave};
-    }
+        // --- MUSIC THEORY ENGINE ---
 
-    function drawStaff(){
-      // responsive drawing
-      const ratio = window.devicePixelRatio || 1;
-      const w = staffCanvas.clientWidth;
-      const h = 140;
-      staffCanvas.width = Math.floor(w * ratio);
-      staffCanvas.height = Math.floor(h * ratio);
-      staffCanvas.style.height = h + 'px';
-      staffCtx.setTransform(ratio,0,0,ratio,0,0);
+        // Helper: Convert MIDI note to "White Key Steps" from C0
+        function getScaleStep(midiNote) {
+            const octave = Math.floor(midiNote / 12) - 1;
+            const noteIndex = midiNote % 12;
+            // Map 0-11 to 0-6 (ignoring accidentals for height)
+            const map = [0,0,1,1,2,3,3,4,4,5,5,6];
+            return (octave * 7) + map[noteIndex];
+        }
 
-      // clear
-      staffCtx.clearRect(0,0,staffCanvas.width,staffCanvas.height);
+        function drawGrandStaff(freq) {
+            const w = staffCanvas.width;
+            const h = staffCanvas.height;
+            const ctx = staffCtx;
+            
+            // Clear
+            ctx.clearRect(0, 0, w, h);
 
-      // staff layout
-      const padding = 28;
-      const staffTop = 28;
-      const lineSpacing = 12; // distance between staff lines
-      const left = padding;
-      const right = staffCanvas.clientWidth - padding;
+            // 1. Calculations
+            const A4 = 440;
+            const semitones = 12 * (Math.log(freq / A4) / Math.log(2));
+            const midiNote = Math.round(semitones) + 69;
+            const noteIndex = midiNote % 12;
+            const octave = Math.floor(midiNote / 12) - 1;
+            const noteName = NOTE_NAMES[noteIndex];
+            
+            // Update UI Text
+            noteDisplay.textContent = `${noteName}${octave}`;
+            freqLabel.textContent = `${Math.round(freq)} Hz`;
 
-      // draw five staff lines
-      staffCtx.lineWidth = 1.2;
-      staffCtx.strokeStyle = 'rgba(255,255,255,0.12)';
-      for(let i=0;i<5;i++){
-        const y = staffTop + i * lineSpacing;
-        staffCtx.beginPath();
-        staffCtx.moveTo(left, y);
-        staffCtx.lineTo(right, y);
-        staffCtx.stroke();
-      }
+            // 2. Setup Dimensions
+            const spacing = 14; // space between lines
+            const trebleTopY = 60; // F5
+            const bassTopY = 180;  // A3
+            
+            // Draw Staff Lines
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
 
-      // draw treble clef (simple text glyph fallback)
-      staffCtx.font = '36px serif';
-      staffCtx.fillStyle = 'rgba(125,211,252,0.95)';
-      staffCtx.fillText('𝄞', left - 18, staffTop + lineSpacing*3);
+            // Treble Staff (5 lines)
+            for(let i=0; i<5; i++) {
+                let y = trebleTopY + (i*spacing);
+                ctx.moveTo(50, y); ctx.lineTo(w-50, y);
+            }
+            // Bass Staff (5 lines)
+            for(let i=0; i<5; i++) {
+                let y = bassTopY + (i*spacing);
+                ctx.moveTo(50, y); ctx.lineTo(w-50, y);
+            }
+            ctx.stroke();
 
-      // compute note position from frequency
-      const f = Number(freq.value);
-      const midiFloat = freqToMidi(f);
-      const {midi, name, octave} = midiToNote(midiFloat);
+            // Draw Grand Staff Brace (Left side)
+            ctx.beginPath();
+            ctx.lineWidth = 3;
+            ctx.moveTo(50, trebleTopY);
+            ctx.lineTo(50, bassTopY + (4*spacing));
+            ctx.stroke();
 
-      // Mapping semitone -> vertical position: we place MIDI note 64 (E4) on the bottom staff line
-      // and each semitone moves by half the lineSpacing (so two semitones = one full step between lines/spaces).
-      const midiRef = 64; // E4 -> bottom line
-      const refY = staffTop + 4 * lineSpacing; // bottom line (line 1 from bottom is i=4 since we drew top to bottom)
-      const semitoneHeight = lineSpacing / 2; // pixels per semitone
-      const semitoneDiff = midi - midiRef;
-      const noteY = refY - semitoneDiff * semitoneHeight;
+            // Draw Clefs
+            ctx.fillStyle = "black";
+            
+            // Treble Clef
+            ctx.font = "65px serif";
+            ctx.fillText("𝄞", 55, trebleTopY + (3.5*spacing)); 
 
-      // draw ledger lines for notes outside staff (if needed) - one per staff-step crossing every 2 semitones
-      staffCtx.lineWidth = 2.2;
-      staffCtx.strokeStyle = 'rgba(255,255,255,0.18)';
-      // compute if above or below
-      const topStaffY = staffTop;
-      const bottomStaffY = staffTop + 4 * lineSpacing;
+            // Bass Clef
+            ctx.font = "55px serif";
+            ctx.fillText("𝄢", 55, bassTopY + (2.8*spacing));
 
-      // draw note head
-      const noteX = left + 110;
-      const noteRadiusX = 14;
-      const noteRadiusY = 9;
 
-      staffCtx.beginPath();
-      staffCtx.ellipse(noteX, noteY, noteRadiusX, noteRadiusY, Math.PI/6, 0, 2*Math.PI);
-      staffCtx.fillStyle = 'rgba(125,211,252,0.95)';
-      staffCtx.fill();
-      staffCtx.strokeStyle = 'rgba(2,6,23,0.6)';
-      staffCtx.stroke();
+            // 3. Determine Position
+            // Middle C (C4, MIDI 60) is our pivot
+            // Logic: Note >= 60 (Middle C) -> Draw on Treble
+            // Logic: Note < 60  -> Draw on Bass
+            
+            let referenceY, isTreble;
 
-      // stem for notes roughly above middle line
-      if (midi >= 64){
-        // stem up
-        staffCtx.beginPath();
-        staffCtx.moveTo(noteX + noteRadiusX * 0.7, noteY - 1);
-        staffCtx.lineTo(noteX + noteRadiusX * 0.7, noteY - 55);
-        staffCtx.lineWidth = 2.2;
-        staffCtx.strokeStyle = 'rgba(125,211,252,0.95)';
-        staffCtx.stroke();
-      } else {
-        // stem down
-        staffCtx.beginPath();
-        staffCtx.moveTo(noteX - noteRadiusX * 0.7, noteY + 1);
-        staffCtx.lineTo(noteX - noteRadiusX * 0.7, noteY + 55);
-        staffCtx.lineWidth = 2.2;
-        staffCtx.strokeStyle = 'rgba(125,211,252,0.95)';
-        staffCtx.stroke();
-      }
+            if (midiNote >= 60) {
+                // Treble Logic
+                isTreble = true;
+                // Reference: B4 (MIDI 71) is the center line of Treble Staff
+                const B4 = 71; 
+                const midLineY = trebleTopY + (2*spacing);
+                
+                const stepDiff = getScaleStep(B4) - getScaleStep(midiNote);
+                referenceY = midLineY + (stepDiff * (spacing/2));
+            } else {
+                // Bass Logic
+                isTreble = false;
+                // Reference: D3 (MIDI 50) is the center line of Bass Staff
+                const D3 = 50; 
+                const midLineY = bassTopY + (2*spacing);
+                
+                const stepDiff = getScaleStep(D3) - getScaleStep(midiNote);
+                referenceY = midLineY + (stepDiff * (spacing/2));
+            }
 
-      // ledger lines (draw if noteY above topStaffY - 10 or below bottomStaffY + 10)
-      staffCtx.lineWidth = 2.2;
-      staffCtx.strokeStyle = 'rgba(255,255,255,0.2)';
-      const ledgerSpacing = lineSpacing; // ledger lines every staff line
-      // above
-      for(let y = topStaffY - ledgerSpacing; y > noteY - 8; y -= ledgerSpacing){
-        staffCtx.beginPath();
-        staffCtx.moveTo(noteX - 22, y);
-        staffCtx.lineTo(noteX + 22, y);
-        staffCtx.stroke();
-      }
-      // below
-      for(let y = bottomStaffY + ledgerSpacing; y < noteY + 8; y += ledgerSpacing){
-        staffCtx.beginPath();
-        staffCtx.moveTo(noteX - 22, y);
-        staffCtx.lineTo(noteX + 22, y);
-        staffCtx.stroke();
-      }
+            const noteY = referenceY;
 
-      // show text label: detected note and cents offset
-      const cents = Math.round((midiFloat - Math.round(midiFloat)) * 100);
-      noteInfo.textContent = `Note: ${name}${octave}  (MIDI ${midi})  ·  Detune: ${cents} cents`;
-    }
+            // 4. Draw Ledger Lines
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 2;
+            
+            // Treble Boundaries
+            const trebleBottomLine = trebleTopY + (4*spacing); // E4
+            const trebleTopLine = trebleTopY; // F5
+            
+            // Bass Boundaries
+            const bassBottomLine = bassTopY + (4*spacing); // G2
+            const bassTopLine = bassTopY; // A3
 
-    // Event listeners
-    freq.addEventListener('input', ()=>{
-      updateLabels();
-      if (oscillator) oscillator.frequency.setValueAtTime(Number(freq.value), audioCtx.currentTime);
-      drawStaff();
-    });
+            function drawLedger(yPos) {
+                ctx.beginPath();
+                ctx.moveTo(w/2 - 20, yPos);
+                ctx.lineTo(w/2 + 20, yPos);
+                ctx.stroke();
+            }
 
-    amp.addEventListener('input', ()=>{
-      updateLabels();
-      if (gainNode) gainNode.gain.setValueAtTime(Number(amp.value), audioCtx ? audioCtx.currentTime : 0);
-    });
+            if (isTreble) {
+                // If y > bottom line (Note is lower than E4)
+                if (noteY > trebleBottomLine + (spacing/4)) {
+                    for (let ly = trebleBottomLine + spacing; ly <= noteY + 1; ly += spacing) {
+                        drawLedger(ly);
+                    }
+                }
+                // If y < top line (Note is higher than F5)
+                if (noteY < trebleTopLine - (spacing/4)) {
+                    for (let ly = trebleTopLine - spacing; ly >= noteY - 1; ly -= spacing) {
+                        drawLedger(ly);
+                    }
+                }
+            } else {
+                // If y < top line (Note is higher than A3)
+                if (noteY < bassTopLine - (spacing/4)) {
+                    for (let ly = bassTopLine - spacing; ly >= noteY - 1; ly -= spacing) {
+                        drawLedger(ly);
+                    }
+                }
+                // If y > bottom line (Note is lower than G2)
+                if (noteY > bassBottomLine + (spacing/4)) {
+                    for (let ly = bassBottomLine + spacing; ly <= noteY + 1; ly += spacing) {
+                        drawLedger(ly);
+                    }
+                }
+            }
 
-    waveType.addEventListener('change', ()=>{
-      if (oscillator) oscillator.type = waveType.value;
-    });
+            // 5. Draw Note Head
+            ctx.beginPath();
+            ctx.ellipse(w/2, noteY, 11, 9, 0, 0, 2*Math.PI);
+            ctx.fillStyle = "black";
+            ctx.fill();
 
-    playBtn.addEventListener('click', ()=>{ startOscillator(); });
-    stopBtn.addEventListener('click', ()=>{ stopOscillator(); });
+            // 6. Draw Stem
+            ctx.beginPath();
+            ctx.lineWidth = 2;
+            
+            // Treble Mid = B4 (71), Bass Mid = D3 (50)
+            const pivotMidi = isTreble ? 71 : 50;
+            
+            if (midiNote < pivotMidi) {
+                // Stem Up (Right side)
+                ctx.moveTo(w/2 + 10, noteY);
+                ctx.lineTo(w/2 + 10, noteY - 45);
+            } else {
+                // Stem Down (Left side)
+                ctx.moveTo(w/2 - 10, noteY);
+                ctx.lineTo(w/2 - 10, noteY + 45);
+            }
+            ctx.stroke();
 
-    // initial UI state
-    stopBtn.disabled = true;
-    clearWaveCanvas();
-    drawStaff();
+            // 7. Sharp/Flat
+            if(noteName.includes("#")) {
+                ctx.font = "24px serif";
+                ctx.fillText("♯", w/2 - 35, noteY + 10);
+            }
+        }
 
-    // responsive sizing
-    function resizeAll(){
-      // wave canvas
-      const ratio = window.devicePixelRatio || 1;
-      const w = waveCanvas.clientWidth;
-      const h = 240;
-      waveCanvas.width = Math.floor(w * ratio);
-      waveCanvas.height = Math.floor(h * ratio);
-      waveCanvas.style.height = h + 'px';
-      waveCtx.setTransform(ratio,0,0,ratio,0,0);
-      clearWaveCanvas();
+        // --- LISTENERS ---
+        toggleBtn.addEventListener('click', toggleSound);
 
-      drawStaff();
-    }
-    window.addEventListener('resize', resizeAll);
-    resizeAll();
-  </script>
+        freqSlider.addEventListener('input', () => {
+            if(isPlaying) oscillator.frequency.value = freqSlider.value;
+        });
+        
+        ampSlider.addEventListener('input', () => {
+            if(isPlaying) gainNode.gain.value = ampSlider.value;
+        });
+
+        draw();
+
+    </script>
 </body>
 </html>
-<!-- https://youtu.be/WrMGGouem3c?si=zswc5MgXg9FynwXD -->
-
